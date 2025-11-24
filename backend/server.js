@@ -17,6 +17,9 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/cart', require('./routes/cart'));
+app.use('/api/reviews', require('./routes/reviews'));
+app.use('/api/wishlists', require('./routes/wishlist'));
+app.use('/api/payfast', require('./routes/payfast'));
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ecommerce', {

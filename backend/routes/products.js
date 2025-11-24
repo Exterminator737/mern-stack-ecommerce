@@ -9,11 +9,15 @@ const { body, validationResult } = require('express-validator');
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const { category, search, page = 1, limit = 12 } = req.query;
+    const { category, search, page = 1, limit = 12, sort, minPrice, maxPrice, isOnSale } = req.query;
     const query = {};
 
     if (category && category !== 'All') {
       query.category = category;
+    }
+
+    if (isOnSale === 'true') {
+      query.isOnSale = true;
     }
 
     if (search) {
@@ -23,10 +27,27 @@ router.get('/', async (req, res) => {
       ];
     }
 
+    // Price filter
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+
+    // Sorting
+    let sortOptions = { createdAt: -1 }; // Default: Newest
+    if (sort === 'price_asc') {
+      sortOptions = { price: 1 };
+    } else if (sort === 'price_desc') {
+      sortOptions = { price: -1 };
+    } else if (sort === 'oldest') {
+      sortOptions = { createdAt: 1 };
+    }
+
     const products = await Product.find(query)
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .sort({ createdAt: -1 });
+      .sort(sortOptions);
 
     const total = await Product.countDocuments(query);
 
@@ -115,6 +136,49 @@ router.delete('/:id', [auth, admin], async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
     res.json({ message: 'Product removed' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/products/:id/reviews
+// @desc    Create new review
+// @access  Private
+router.post('/:id/reviews', auth, async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    const product = await Product.findById(req.params.id);
+
+    if (product) {
+      const alreadyReviewed = product.reviews.find(
+        (r) => r.user.toString() === req.user.id.toString()
+      );
+
+      if (alreadyReviewed) {
+        return res.status(400).json({ message: 'Product already reviewed' });
+      }
+
+      const review = {
+        name: req.user.name,
+        rating: Number(rating),
+        comment,
+        user: req.user.id
+      };
+
+      product.reviews.push(review);
+
+      product.numReviews = product.reviews.length;
+
+      product.rating =
+        product.reviews.reduce((acc, item) => item.rating + acc, 0) /
+        product.reviews.length;
+
+      await product.save();
+      res.status(201).json({ message: 'Review added' });
+    } else {
+      res.status(404).json({ message: 'Product not found' });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

@@ -63,8 +63,8 @@ router.post('/', [auth], [
       taxPrice,
       shippingPrice,
       totalPrice,
-      isPaid: true, // Simplified - in production, integrate payment gateway
-      paidAt: new Date()
+      isPaid: false,
+      paidAt: null
     });
 
     // Update product stock
