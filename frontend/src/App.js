@@ -1,23 +1,24 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { CartProvider } from './context/CartContext';
-import { WishlistProvider } from './context/WishlistContext';
-import Navbar from './components/Navbar';
-import Footer from './components/Footer';
-import Home from './pages/Home';
-import Products from './pages/Products';
-import ProductDetail from './pages/ProductDetail';
-import Cart from './pages/Cart';
-import Checkout from './pages/Checkout';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Profile from './pages/Profile';
-import Orders from './pages/Orders';
-import OrderDetail from './pages/OrderDetail';
-import AdminDashboard from './pages/AdminDashboard';
-import Wishlists from './pages/Wishlists';
-import WishlistDetail from './pages/WishlistDetail';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import { CartProvider } from "./context/CartContext";
+import { WishlistProvider } from "./context/WishlistContext";
+import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
+import Home from "./pages/Home";
+import Products from "./pages/Products";
+import ProductDetail from "./pages/ProductDetail";
+import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Profile from "./pages/Profile";
+import Orders from "./pages/Orders";
+import OrderDetail from "./pages/OrderDetail";
+import AdminDashboard from "./pages/AdminDashboard";
+import Wishlists from "./pages/Wishlists";
+import WishlistDetail from "./pages/WishlistDetail";
+import ReturnsPolicy from "./pages/ReturnsPolicy";
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
                   <Route path="/admin" element={<AdminDashboard />} />
                   <Route path="/wishlists" element={<Wishlists />} />
                   <Route path="/wishlists/:id" element={<WishlistDetail />} />
+                  <Route path="/returns-policy" element={<ReturnsPolicy />} />
                 </Routes>
               </main>
               <Footer />
@@ -54,4 +56,3 @@ function App() {
 }
 
 export default App;
-

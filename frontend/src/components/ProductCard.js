@@ -1,31 +1,41 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { ShoppingCart, Heart, Star } from 'lucide-react';
-import { formatCurrency } from '../utils/currency';
-import SaleBadge from './SaleBadge';
-import { useCart } from '../context/CartContext';
-import { useWishlist } from '../context/WishlistContext';
-import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import React from "react";
+import { Link } from "react-router-dom";
+import { ShoppingCart, Heart, Star } from "lucide-react";
+import { formatCurrency } from "../utils/currency";
+import SaleBadge from "./SaleBadge";
+import { useCart } from "../context/CartContext";
+import { useWishlist } from "../context/WishlistContext";
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart();
-  const { isInWishlist, addToWishlist, removeFromWishlist, wishlists, createWishlist } = useWishlist();
+  const {
+    isInWishlist,
+    addToWishlist,
+    removeFromWishlist,
+    wishlists,
+    createWishlist,
+  } = useWishlist();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const imageUrl =
+    Array.isArray(product.images) && product.images.length > 0
+      ? product.images[0]
+      : product.image;
 
   const handleAddToCart = async (e) => {
-    e.preventDefault(); 
+    e.preventDefault();
     await addToCart(product._id, 1);
   };
 
   const handleToggleWishlist = async (e) => {
     e.preventDefault();
     if (!isAuthenticated) {
-      navigate('/login');
+      navigate("/login");
       return;
     }
-    
+
     const existingListId = isInWishlist(product._id);
     if (existingListId) {
       await removeFromWishlist(existingListId, product._id);
@@ -34,10 +44,10 @@ const ProductCard = ({ product }) => {
       if (wishlists.length > 0) {
         targetListId = wishlists[0]._id;
       } else {
-        const res = await createWishlist('My Wishlist', 'Default wishlist');
+        const res = await createWishlist("My Wishlist", "Default wishlist");
         if (res.success) targetListId = res.data._id;
       }
-      
+
       if (targetListId) {
         await addToWishlist(targetListId, product._id);
       }
@@ -45,16 +55,24 @@ const ProductCard = ({ product }) => {
   };
 
   return (
-    <Link to={`/products/${product._id}`} className="group block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col h-full">
+    <Link
+      to={`/products/${product._id}`}
+      className="group bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col h-full"
+    >
       <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden bg-gray-200 xl:aspect-w-7 xl:aspect-h-8 relative">
         {/* Sale Badge logic handled inside the component, but we can enforce isOnSale check here too */}
         {product.isOnSale && (
-            <SaleBadge price={product.price} originalPrice={product.originalPrice} />
+          <SaleBadge
+            price={product.price}
+            originalPrice={product.originalPrice}
+          />
         )}
-        
-        <img 
-          src={product.image} 
-          alt={product.name} 
+
+        <img
+          src={imageUrl}
+          alt={product.name}
+          loading="lazy"
+          decoding="async"
           className="w-full h-64 object-cover object-center group-hover:opacity-75 transition-opacity"
         />
         {product.stock === 0 && (
@@ -65,51 +83,61 @@ const ProductCard = ({ product }) => {
         <button
           onClick={handleToggleWishlist}
           className="absolute top-2 right-2 p-2 rounded-full bg-white shadow-md text-gray-400 hover:text-red-500 hover:bg-gray-50 focus:outline-none transition-colors"
-          title={isInWishlist(product._id) ? "Remove from Wishlist" : "Add to Wishlist"}
+          title={
+            isInWishlist(product._id)
+              ? "Remove from Wishlist"
+              : "Add to Wishlist"
+          }
         >
-          <Heart 
-            className={`h-5 w-5 ${isInWishlist(product._id) ? 'fill-current text-red-500' : ''}`} 
+          <Heart
+            className={`h-5 w-5 ${
+              isInWishlist(product._id) ? "fill-current text-red-500" : ""
+            }`}
           />
         </button>
       </div>
       <div className="p-4 flex-1 flex flex-col">
-        <h3 className="text-sm text-gray-700 font-medium truncate">{product.name}</h3>
+        <h3 className="text-sm text-gray-700 font-medium truncate">
+          {product.name}
+        </h3>
         <p className="mt-1 text-sm text-gray-500">{product.category}</p>
-        
+
         <div className="mt-2 flex items-center justify-between">
           <div className="flex flex-col">
             {product.isOnSale ? (
-                <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 line-through">
-                        {formatCurrency(product.originalPrice)}
-                    </span>
-                    <span className="text-lg font-bold text-[#E60023]">
-                        {formatCurrency(product.price)}
-                    </span>
-                </div>
-            ) : (
-                <span className="text-lg font-bold text-gray-900">
-                    {formatCurrency(product.price)}
+              <div className="flex flex-col">
+                <span className="text-xs text-gray-500 line-through">
+                  {formatCurrency(product.originalPrice)}
                 </span>
+                <span className="text-lg font-bold text-[#E60023]">
+                  {formatCurrency(product.price)}
+                </span>
+              </div>
+            ) : (
+              <span className="text-lg font-bold text-gray-900">
+                {formatCurrency(product.price)}
+              </span>
             )}
           </div>
 
           {product.rating > 0 && (
             <div className="flex items-center text-yellow-400">
               <Star className="h-4 w-4 fill-current" />
-              <span className="text-xs text-gray-500 ml-1">{product.rating.toFixed(1)} ({product.numReviews})</span>
+              <span className="text-xs text-gray-500 ml-1">
+                {product.rating.toFixed(1)} ({product.numReviews})
+              </span>
             </div>
           )}
         </div>
-        
-        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2 mt-auto">
+
+        <div className="pt-4 border-t border-gray-100 flex items-center gap-2 mt-auto">
           <button
             onClick={handleAddToCart}
             disabled={product.stock === 0}
             className={`flex-1 flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white ${
               product.stock === 0
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500'
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
             }`}
           >
             <ShoppingCart className="h-4 w-4 mr-2" />
