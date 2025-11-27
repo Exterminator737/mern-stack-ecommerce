@@ -60,12 +60,17 @@ const ProductCard = ({ product }) => {
       className="group bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col h-full"
     >
       <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden bg-gray-200 xl:aspect-w-7 xl:aspect-h-8 relative">
-        {/* Sale Badge logic handled inside the component, but we can enforce isOnSale check here too */}
         {product.isOnSale && (
           <SaleBadge
             price={product.price}
             originalPrice={product.originalPrice}
           />
+        )}
+
+        {product.stock > 0 && product.stock <= 5 && (
+          <div className="absolute top-0 left-0 m-2 px-2 py-1 bg-amber-500 text-white text-xs font-bold rounded">
+            Low stock
+          </div>
         )}
 
         <img

@@ -26,6 +26,11 @@ const Checkout = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Coupon state
+  const [couponCode, setCouponCode] = useState("");
+  const [couponApplying, setCouponApplying] = useState(false);
+  const [couponMessage, setCouponMessage] = useState("");
+  const [discountAmount, setDiscountAmount] = useState(0);
 
   useEffect(() => {
     if (cartItems.length === 0) {
@@ -41,6 +46,61 @@ const Checkout = () => {
       fetchCart();
     }
   }, [isAuthenticated, navigate, cartItems.length, user, fetchCart]);
+
+  // Optional Google Places Autocomplete for address
+  useEffect(() => {
+    const key = process.env.REACT_APP_GOOGLE_PLACES_KEY;
+    if (!key) return;
+    if (window.google && window.google.maps && window.google.maps.places) {
+      attachAutocomplete();
+      return;
+    }
+    const scriptId = "google-places-autocomplete";
+    if (document.getElementById(scriptId)) return;
+    const s = document.createElement("script");
+    s.id = scriptId;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
+    s.async = true;
+    s.defer = true;
+    s.onload = () => attachAutocomplete();
+    document.body.appendChild(s);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const attachAutocomplete = () => {
+    try {
+      const input = document.getElementById("street");
+      if (!input || !window.google || !window.google.maps?.places) return;
+      const ac = new window.google.maps.places.Autocomplete(input, {
+        types: ["address"],
+        fields: ["address_components", "formatted_address"],
+      });
+      ac.addListener("place_changed", () => {
+        const place = ac.getPlace();
+        const comps = place.address_components || [];
+        const getComp = (type) =>
+          comps.find((c) => c.types.includes(type))?.long_name || "";
+        const streetNumber = getComp("street_number");
+        const route = getComp("route");
+        const city =
+          getComp("locality") ||
+          getComp("sublocality") ||
+          getComp("administrative_area_level_2");
+        const state = getComp("administrative_area_level_1");
+        const zip = getComp("postal_code");
+        const country = getComp("country");
+        setFormData((prev) => ({
+          ...prev,
+          street:
+            [streetNumber, route].filter(Boolean).join(" ") || prev.street,
+          city: city || prev.city,
+          state: state || prev.state,
+          zipCode: zip || prev.zipCode,
+          country: country || prev.country,
+        }));
+      });
+    } catch (_) {}
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -93,6 +153,7 @@ const Checkout = () => {
         const orderData = {
           shippingAddress,
           paymentMethod: formData.paymentMethod,
+          ...(discountAmount > 0 && couponCode ? { couponCode } : {}),
         };
 
         res = await axios.post("/api/orders", orderData);
@@ -112,6 +173,7 @@ const Checkout = () => {
           shippingAddress,
           paymentMethod: formData.paymentMethod,
           items,
+          ...(discountAmount > 0 && couponCode ? { couponCode } : {}),
         };
 
         res = await axios.post("/api/orders/guest", orderData);
@@ -156,13 +218,41 @@ const Checkout = () => {
     }
   };
 
+  const handleApplyCoupon = async () => {
+    const code = (couponCode || "").trim();
+    if (!code) {
+      setCouponMessage("Enter a coupon code");
+      return;
+    }
+    try {
+      setCouponApplying(true);
+      setCouponMessage("");
+      const res = await axios.get("/api/coupons/validate", {
+        params: { code, subtotal: cartTotal },
+      });
+      if (res.data?.valid) {
+        setDiscountAmount(res.data.discount || 0);
+        setCouponMessage(`Coupon applied: -${res.data.discount}`);
+      } else {
+        setDiscountAmount(0);
+        setCouponMessage(res.data?.message || "Invalid coupon");
+      }
+    } catch (e) {
+      setDiscountAmount(0);
+      setCouponMessage(e.response?.data?.message || "Invalid coupon");
+    } finally {
+      setCouponApplying(false);
+    }
+  };
+
   if (cartItems.length === 0) {
     return null;
   }
 
-  const shippingPrice = cartTotal > 500 ? 0 : 50;
-  const taxPrice = cartTotal * 0.15;
-  const totalPrice = cartTotal + shippingPrice + taxPrice;
+  const netSubtotal = Math.max(0, cartTotal - discountAmount);
+  const shippingPrice = netSubtotal > 500 ? 0 : 50;
+  const taxPrice = netSubtotal * 0.15;
+  const totalPrice = netSubtotal + shippingPrice + taxPrice;
 
   return (
     <div className="bg-gray-50 min-h-screen py-12">
@@ -544,6 +634,44 @@ const Checkout = () => {
                     {formatCurrency(cartTotal)}
                   </p>
                 </div>
+                {/* Coupon */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Coupon Code
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) =>
+                        setCouponCode(e.target.value.toUpperCase())
+                      }
+                      placeholder="Enter code"
+                      className="flex-1 h-10 px-3 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={couponApplying}
+                      className="px-4 h-10 rounded-md bg-white border border-gray-300 text-sm hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {couponApplying ? "Applying..." : "Apply"}
+                    </button>
+                  </div>
+                  {couponMessage && (
+                    <div className="mt-2 text-xs text-gray-600">
+                      {couponMessage}
+                    </div>
+                  )}
+                </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-sm text-green-700 mb-4">
+                    <p>Discount</p>
+                    <p className="font-medium">
+                      - {formatCurrency(discountAmount)}
+                    </p>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm text-gray-600 mb-4">
                   <p>Shipping</p>
                   <p className="font-medium text-gray-900">

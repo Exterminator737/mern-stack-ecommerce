@@ -17,6 +17,8 @@ const cacheKeyFor = (query) => {
     "minPrice",
     "maxPrice",
     "isOnSale",
+    "inStock",
+    "facets",
   ];
   const obj = {};
   for (const k of keys) if (query[k] !== undefined) obj[k] = String(query[k]);
@@ -41,8 +43,14 @@ router.get("/", async (req, res) => {
   try {
     const key = cacheKeyFor(req.query || {});
     const cached = cacheGet(key);
+    const maxAge = Math.floor(TTL_MS / 1000);
+    const swr = Math.floor((TTL_MS * 5) / 1000);
     if (cached) {
       res.set("X-Cache", "HIT");
+      res.set(
+        "Cache-Control",
+        `public, max-age=${maxAge}, stale-while-revalidate=${swr}`
+      );
       return res.json(cached);
     }
     const {
@@ -54,6 +62,8 @@ router.get("/", async (req, res) => {
       minPrice,
       maxPrice,
       isOnSale,
+      inStock,
+      facets,
     } = req.query;
     const query = {};
 
@@ -63,6 +73,10 @@ router.get("/", async (req, res) => {
 
     if (isOnSale === "true") {
       query.isOnSale = true;
+    }
+
+    if (inStock === "true") {
+      query.stock = { $gt: 0 };
     }
 
     if (search) {
@@ -104,8 +118,67 @@ router.get("/", async (req, res) => {
       currentPage: page,
       total,
     };
+
+    if (facets === "true") {
+      // Build aggregation for facets based on the same base query
+      const matchStage = { $match: query };
+      const facetPipeline = [
+        matchStage,
+        {
+          $facet: {
+            categories: [
+              { $group: { _id: "$category", count: { $sum: 1 } } },
+              { $project: { _id: 0, name: "$_id", count: 1 } },
+              { $sort: { count: -1 } },
+            ],
+            onSale: [{ $match: { isOnSale: true } }, { $count: "count" }],
+            inStock: [{ $match: { stock: { $gt: 0 } } }, { $count: "count" }],
+            priceBuckets: [
+              {
+                $bucket: {
+                  groupBy: "$price",
+                  boundaries: [0, 250, 500, 1000000000],
+                  default: "other",
+                  output: { count: { $sum: 1 } },
+                },
+              },
+            ],
+          },
+        },
+      ];
+
+      try {
+        const agg = await Product.aggregate(facetPipeline);
+        const data = agg && agg[0] ? agg[0] : {};
+        const pb = { under250: 0, between250and500: 0, over500: 0 };
+        (data.priceBuckets || []).forEach((b) => {
+          if (b._id === 0) pb.under250 = b.count; // first bucket 0-250
+          else if (b._id === 250) pb.between250and500 = b.count; // 250-500
+          else if (b._id === 500) pb.over500 += b.count; // 500+
+        });
+        payload.facets = {
+          categories: data.categories || [],
+          onSale: (data.onSale && data.onSale[0] && data.onSale[0].count) || 0,
+          inStock:
+            (data.inStock && data.inStock[0] && data.inStock[0].count) || 0,
+          priceBuckets: pb,
+        };
+      } catch (e) {
+        // Fail silently for facets to avoid breaking main response
+        payload.facets = {
+          categories: [],
+          onSale: 0,
+          inStock: 0,
+          priceBuckets: { under250: 0, between250and500: 0, over500: 0 },
+        };
+      }
+    }
     cacheSet(key, payload);
     res.set("X-Cache", "MISS");
+    res.set(
+      "Cache-Control",
+      `public, max-age=${maxAge}, stale-while-revalidate=${swr}`
+    );
     res.json(payload);
   } catch (error) {
     console.error(error);
@@ -175,6 +248,12 @@ router.get("/:id", async (req, res) => {
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
+    const maxAge = Math.floor(TTL_MS / 1000);
+    const swr = Math.floor((TTL_MS * 5) / 1000);
+    res.set(
+      "Cache-Control",
+      `public, max-age=${maxAge}, stale-while-revalidate=${swr}`
+    );
     res.json(product);
   } catch (error) {
     console.error(error);
@@ -206,7 +285,18 @@ router.post(
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const product = new Product(req.body);
+      const b = req.body || {};
+      if (b.originalPrice !== undefined)
+        b.originalPrice = Number(b.originalPrice);
+      if (b.salePrice !== undefined) b.salePrice = Number(b.salePrice);
+      if (b.stock !== undefined) b.stock = parseInt(b.stock, 10);
+      if (b.isOnSale) {
+        b.price = Number(b.salePrice ?? b.price ?? b.originalPrice);
+      } else {
+        b.price = Number(b.originalPrice ?? b.price ?? 0);
+      }
+
+      const product = new Product(b);
       await product.save();
       cacheClear();
       res.status(201).json(product);
@@ -222,7 +312,32 @@ router.post(
 // @access  Private/Admin
 router.put("/:id", [auth, admin], async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+    const b = { ...(req.body || {}) };
+    if (b.originalPrice !== undefined)
+      b.originalPrice = Number(b.originalPrice);
+    if (b.salePrice !== undefined) b.salePrice = Number(b.salePrice);
+    if (b.stock !== undefined) b.stock = parseInt(b.stock, 10);
+    if (b.isOnSale !== undefined) {
+      b.price = Number(
+        b.isOnSale
+          ? b.salePrice !== undefined
+            ? b.salePrice
+            : b.price
+          : b.originalPrice !== undefined
+          ? b.originalPrice
+          : b.price
+      );
+    } else if (b.salePrice !== undefined || b.originalPrice !== undefined) {
+      b.price = Number(
+        b.salePrice !== undefined
+          ? b.salePrice
+          : b.originalPrice !== undefined
+          ? b.originalPrice
+          : b.price
+      );
+    }
+
+    const product = await Product.findByIdAndUpdate(req.params.id, b, {
       new: true,
       runValidators: true,
     });

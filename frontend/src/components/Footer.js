@@ -1,6 +1,15 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Facebook, Twitter, Instagram, Smartphone, Apple, PlayCircle } from 'lucide-react';
+import React from "react";
+import { Link } from "react-router-dom";
+import {
+  Facebook,
+  Twitter,
+  Instagram,
+  Mail,
+  Phone,
+  CreditCard,
+  ShieldCheck,
+  Truck,
+} from "lucide-react";
 
 const Footer = () => {
   return (
@@ -8,70 +17,238 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Main Footer Content */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
-          
           {/* Column 1 - Shop */}
           <div>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Shop</h3>
+            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">
+              Shop
+            </h3>
             <ul className="space-y-3">
-              <li><Link to="/products?sort=sale" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Deals</Link></li>
-              <li><Link to="/products?sort=clearance" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Clearance Sale</Link></li>
-              <li><Link to="/gift-vouchers" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Gift Vouchers</Link></li>
+              <li>
+                <Link
+                  to="/products"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  All Products
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/products?category=Electronics"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Electronics
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/products?category=Clothing"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Clothing
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/products?category=Books"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Books
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/products?category=Home"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Home
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/products?category=Sports"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Sports
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/products?isOnSale=true"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  On Sale
+                </Link>
+              </li>
             </ul>
           </div>
 
           {/* Column 2 - Account */}
           <div>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Account</h3>
+            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">
+              Account
+            </h3>
             <ul className="space-y-3">
-              <li><Link to="/profile" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">My Account</Link></li>
-              <li><Link to="/orders" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Track Order</Link></li>
-              <li><Link to="/returns" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Returns</Link></li>
-              <li><Link to="/profile" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Personal Details</Link></li>
-              <li><Link to="/invoices" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Invoices</Link></li>
-              <li><Link to="/takealot-more" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">TakealotMORE</Link></li>
+              <li>
+                <Link
+                  to="/profile"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  My Account
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/orders"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Orders
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/wishlists"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Wishlists
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/login"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Log in
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/register"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Register
+                </Link>
+              </li>
             </ul>
           </div>
 
           {/* Column 3 - Help */}
           <div>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Help</h3>
+            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">
+              Customer Service
+            </h3>
             <ul className="space-y-3">
-              <li><Link to="/help" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Help Centre</Link></li>
-              <li><Link to="/contact" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Contact Us</Link></li>
-              <li><Link to="/submit-idea" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Submit an Idea</Link></li>
-              <li><Link to="/suggest-product" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Suggest a Product</Link></li>
-              <li><Link to="/shipping" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Shipping & Delivery</Link></li>
-              <li><Link to="/pickup-points" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Takealot Pickup Points</Link></li>
-              <li><Link to="/returns-help" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Returns</Link></li>
-              <li><Link to="/ip-complaint" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Log Intellectual Property Complaint</Link></li>
+              <li>
+                <Link
+                  to="/returns-policy"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Returns Policy
+                </Link>
+              </li>
+              <li>
+                <a
+                  href="mailto:support@wholesaleza.co.za"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Contact Support
+                </a>
+              </li>
+              <li>
+                <a
+                  href="mailto:billing@wholesaleza.co.za"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Payment & Billing
+                </a>
+              </li>
+              <li>
+                <Link
+                  to="/orders"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Track Order
+                </Link>
+              </li>
             </ul>
           </div>
 
           {/* Column 4 - Company */}
           <div>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Company</h3>
+            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">
+              Company
+            </h3>
             <ul className="space-y-3">
-              <li><Link to="/about" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">About Us</Link></li>
-              <li><Link to="/careers" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Careers</Link></li>
-              <li><Link to="/sell" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Sell on Takealot</Link></li>
-              <li><Link to="/deliver" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Deliver for Takealot</Link></li>
-              <li><Link to="/press" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Press & News</Link></li>
-              <li><Link to="/competitions" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Competitions</Link></li>
-              <li><Link to="/business" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Takealot for Business</Link></li>
-              <li><Link to="/mr-d" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Mr D</Link></li>
+              <li>
+                <Link
+                  to="/"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Home
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/products"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Shop
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/cart"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Cart
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/checkout"
+                  className="text-sm text-gray-600 hover:text-primary-600 hover:underline"
+                >
+                  Checkout
+                </Link>
+              </li>
             </ul>
           </div>
 
-          {/* Column 5 - Takealot Policy */}
+          {/* Column 5 - Contact */}
           <div>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Takealot Policy</h3>
-            <ul className="space-y-3">
-              <li><Link to="/returns-policy" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Returns Policy</Link></li>
-              <li><Link to="/terms" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Terms & Conditions</Link></li>
-              <li><Link to="/privacy" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Privacy Policy</Link></li>
-              <li><Link to="/human-rights" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Human Rights Statement</Link></li>
-              <li><Link to="/advertising-code" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Code of Advertising Practice</Link></li>
-              <li><Link to="/speak-up" className="text-sm text-gray-600 hover:text-primary-600 hover:underline">Speak Up Process</Link></li>
+            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">
+              Contact
+            </h3>
+            <ul className="space-y-3 text-sm text-gray-600">
+              <li className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-gray-400" />
+                <a
+                  href="mailto:support@wholesaleza.co.za"
+                  className="hover:text-primary-600 hover:underline"
+                >
+                  support@wholesaleza.co.za
+                </a>
+              </li>
+              <li className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-gray-400" />
+                <a
+                  href="tel:+27-000-0000"
+                  className="hover:text-primary-600 hover:underline"
+                >
+                  +27 00 000 0000
+                </a>
+              </li>
+              <li className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-gray-400" />
+                Secure Payments
+              </li>
+              <li className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-gray-400" />
+                Fast Delivery
+              </li>
+              <li className="flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-gray-400" />
+                Multiple Payment Options
+              </li>
             </ul>
           </div>
         </div>
@@ -79,41 +256,52 @@ const Footer = () => {
         {/* App Download & Social */}
         <div className="border-t border-gray-200 pt-8 pb-8 mb-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            
-            {/* App Buttons */}
-            <div className="flex flex-wrap justify-center md:justify-start gap-4">
-              <a href="#" className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors">
-                <Apple className="w-6 h-6" />
-                <div className="text-left">
-                  <div className="text-[10px] leading-none">Download on the</div>
-                  <div className="text-sm font-bold leading-none">App Store</div>
-                </div>
-              </a>
-              <a href="#" className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors">
-                <PlayCircle className="w-6 h-6" />
-                <div className="text-left">
-                  <div className="text-[10px] leading-none">GET IT ON</div>
-                  <div className="text-sm font-bold leading-none">Google Play</div>
-                </div>
-              </a>
-              <a href="#" className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors">
-                <Smartphone className="w-6 h-6" />
-                <div className="text-left">
-                  <div className="text-[10px] leading-none">EXPLORE IT ON</div>
-                  <div className="text-sm font-bold leading-none">AppGallery</div>
-                </div>
-              </a>
-            </div>
+            {/* Newsletter */}
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="w-full md:w-auto flex items-center gap-2"
+            >
+              <input
+                type="email"
+                placeholder="Subscribe for deals and new arrivals"
+                className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500"
+                required
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700"
+              >
+                Subscribe
+              </button>
+            </form>
 
             {/* Social Media */}
             <div className="flex items-center gap-6">
-              <a href="#" className="text-gray-400 hover:text-blue-600 transition-colors">
+              <a
+                href="https://www.facebook.com/wholesaleza"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Wholesale ZA on Facebook"
+                className="text-gray-400 hover:text-blue-600 transition-colors"
+              >
                 <Facebook className="w-6 h-6" />
               </a>
-              <a href="#" className="text-gray-400 hover:text-blue-400 transition-colors">
+              <a
+                href="https://twitter.com/wholesaleza"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Wholesale ZA on Twitter"
+                className="text-gray-400 hover:text-blue-400 transition-colors"
+              >
                 <Twitter className="w-6 h-6" />
               </a>
-              <a href="#" className="text-gray-400 hover:text-pink-600 transition-colors">
+              <a
+                href="https://www.instagram.com/wholesaleza"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Wholesale ZA on Instagram"
+                className="text-gray-400 hover:text-pink-600 transition-colors"
+              >
                 <Instagram className="w-6 h-6" />
               </a>
             </div>
@@ -124,22 +312,29 @@ const Footer = () => {
         <div className="border-t border-gray-200 pt-8">
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-gray-500">
             {[
-              "Baby & Toddler", "Beauty", "Books", "Cameras", "Camping & Outdoors", 
-              "Cellphones & Wearables", "Computers & Tablets", "Fashion", "Gaming", 
-              "Garden, Pool & Patio", "Health", "Home & Kitchen", "Luggage & Travel", 
-              "Movies & Series", "Music", "Office & Stationery", "Pets", "Sport", 
-              "TV, Audio & Video", "Toys", "Vouchers"
-            ].map((category, index) => (
-              <React.Fragment key={category}>
-                <Link to={`/products?category=${category}`} className="hover:text-primary-600 hover:underline whitespace-nowrap">
-                  {category}
+              { label: "All Products", href: "/products" },
+              { label: "Electronics", href: "/products?category=Electronics" },
+              { label: "Clothing", href: "/products?category=Clothing" },
+              { label: "Books", href: "/products?category=Books" },
+              { label: "Home", href: "/products?category=Home" },
+              { label: "Sports", href: "/products?category=Sports" },
+              { label: "Other", href: "/products?category=Other" },
+            ].map((item, index, arr) => (
+              <React.Fragment key={item.label}>
+                <Link
+                  to={item.href}
+                  className="hover:text-primary-600 hover:underline whitespace-nowrap"
+                >
+                  {item.label}
                 </Link>
-                {index < 20 && <span className="text-gray-300">|</span>}
+                {index < arr.length - 1 && (
+                  <span className="text-gray-300">|</span>
+                )}
               </React.Fragment>
             ))}
           </div>
           <div className="mt-8 text-center text-xs text-gray-400">
-            &copy; {new Date().getFullYear()} Takealot Online (Pty) Ltd. All rights reserved.
+            &copy; {new Date().getFullYear()} Wholesale ZA. All rights reserved.
           </div>
         </div>
       </div>

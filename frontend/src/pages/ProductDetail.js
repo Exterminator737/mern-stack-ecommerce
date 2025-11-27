@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
 import { formatCurrency } from "../utils/currency";
+import Breadcrumbs from "../components/Breadcrumbs";
 import {
   Minus,
   Plus,
@@ -55,7 +56,6 @@ const ProductDetail = () => {
       const res = await axios.get(`/api/products/${id}`);
       setProduct(res.data);
 
-      // Prefer a real images array; fallback to the single image field
       const imgs =
         Array.isArray(res.data.images) && res.data.images.length > 0
           ? res.data.images
@@ -64,6 +64,28 @@ const ProductDetail = () => {
 
       // Fetch similar products
       fetchSimilarProducts(res.data.category, res.data._id);
+
+      try {
+        const key = "rv.v1";
+        const raw = localStorage.getItem(key);
+        const list = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+        const item = {
+          _id: res.data._id,
+          name: res.data.name,
+          image: imgs[0],
+          price: res.data.price,
+          category: res.data.category,
+        };
+        const filtered = list.filter((x) => x && x._id !== item._id);
+        const next = [item, ...filtered].slice(0, 20);
+        localStorage.setItem(key, JSON.stringify(next));
+        const bk = "bp.v1";
+        const browRaw = localStorage.getItem(bk);
+        const brow = browRaw ? JSON.parse(browRaw) : {};
+        const cat = String(res.data.category || "Other");
+        brow[cat] = (brow[cat] || 0) + 1;
+        localStorage.setItem(bk, JSON.stringify(brow));
+      } catch (_) {}
     } catch (error) {
       console.error("Error fetching product:", error);
       navigate("/products");
@@ -141,9 +163,57 @@ const ProductDetail = () => {
 
   if (!product) return null;
 
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    image:
+      Array.isArray(images) && images.length > 0 ? images : [product.image],
+    description: product.description,
+    sku: product._id,
+    category: product.category,
+    aggregateRating:
+      typeof product.rating === "number" && product.numReviews > 0
+        ? {
+            "@type": "AggregateRating",
+            ratingValue: Number(product.rating).toFixed(1),
+            reviewCount: product.numReviews,
+          }
+        : undefined,
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "ZAR",
+      price: product.price,
+      availability:
+        product.stock > 0
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+      itemCondition: "https://schema.org/NewCondition",
+    },
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-4">
+          <Breadcrumbs
+            items={[
+              { label: "Home", to: "/" },
+              { label: "Products", to: "/products" },
+              ...(product?.category
+                ? [
+                    {
+                      label: product.category,
+                      to: `/products?category=${encodeURIComponent(
+                        product.category
+                      )}`,
+                    },
+                  ]
+                : []),
+              ...(product?.name ? [{ label: product.name }] : []),
+            ]}
+          />
+        </div>
         {/* Product Section */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden lg:flex lg:gap-8 p-6 lg:p-8 mb-8">
           {/* Image Carousel */}
@@ -349,6 +419,13 @@ const ProductDetail = () => {
                 </span>
               </div>
 
+              {product.stock > 0 && product.stock <= 5 && (
+                <div className="mb-6 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-3">
+                  <span className="font-medium">Low stock:</span> Only{" "}
+                  {product.stock} left. Order soon.
+                </div>
+              )}
+
               {product.stock > 0 && (
                 <div className="space-y-6">
                   <div className="flex items-center">
@@ -549,6 +626,11 @@ const ProductDetail = () => {
           </div>
         )}
       </div>
+      {/* JSON-LD Product schema for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
     </div>
   );
 };

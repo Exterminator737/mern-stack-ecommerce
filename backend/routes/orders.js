@@ -2,9 +2,32 @@ const express = require("express");
 const router = express.Router();
 const Order = require("../models/Order");
 const Product = require("../models/Product");
+const User = require("../models/User");
+const Coupon = require("../models/Coupon");
 const { auth, admin } = require("../middleware/Auth");
 const { body, validationResult } = require("express-validator");
 const { getCart, clearCart } = require("../utils/cartStorage");
+
+const isCouponActiveNow = (coupon) => {
+  const now = new Date();
+  if (coupon.isActive === false) return false;
+  if (coupon.startsAt && now < new Date(coupon.startsAt)) return false;
+  if (coupon.endsAt && now > new Date(coupon.endsAt)) return false;
+  if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) return false;
+  return true;
+};
+
+const computeCouponDiscount = (coupon, subtotal) => {
+  const sub = Number(subtotal || 0);
+  if (coupon.minSubtotal && sub < coupon.minSubtotal) return 0;
+  if (coupon.type === "percent") {
+    return Math.max(0, Math.round((sub * coupon.value) / 100));
+  }
+  if (coupon.type === "fixed") {
+    return Math.max(0, Math.min(sub, Math.round(coupon.value)));
+  }
+  return 0;
+};
 
 // @route   POST /api/orders
 // @desc    Create new order
@@ -61,10 +84,28 @@ router.post(
       }
 
       // Calculate prices
-      const itemsPrice = cart.total;
-      const taxPrice = itemsPrice * 0.15; // 15% tax (VAT in South Africa)
-      const shippingPrice = itemsPrice > 500 ? 0 : 50; // Free shipping over R500
-      const totalPrice = itemsPrice + taxPrice + shippingPrice;
+      let itemsPrice = cart.total;
+      let discount = 0;
+      let appliedCoupon = null;
+      if (req.body && req.body.couponCode) {
+        const code = String(req.body.couponCode || "")
+          .trim()
+          .toUpperCase();
+        if (code) {
+          const coupon = await Coupon.findOne({ code });
+          if (coupon && isCouponActiveNow(coupon)) {
+            const d = computeCouponDiscount(coupon, itemsPrice);
+            if (d > 0) {
+              discount = d;
+              appliedCoupon = coupon;
+            }
+          }
+        }
+      }
+      const netItems = Math.max(0, itemsPrice - discount);
+      const taxPrice = netItems * 0.15; // 15% tax (VAT in South Africa)
+      const shippingPrice = netItems > 500 ? 0 : 50; // Free shipping over R500
+      const totalPrice = netItems + taxPrice + shippingPrice;
 
       // Create order
       const order = new Order({
@@ -72,6 +113,8 @@ router.post(
         orderItems,
         shippingAddress: req.body.shippingAddress,
         paymentMethod: req.body.paymentMethod,
+        discount,
+        couponCode: appliedCoupon ? appliedCoupon.code : undefined,
         taxPrice,
         shippingPrice,
         totalPrice,
@@ -81,16 +124,53 @@ router.post(
 
       // Update product stock
       for (const item of cart.items) {
-        await Product.findByIdAndUpdate(item.productId, {
-          $inc: { stock: -item.quantity },
-        });
+        const updated = await Product.findByIdAndUpdate(
+          item.productId,
+          { $inc: { stock: -item.quantity } },
+          { new: true, projection: { name: 1, stock: 1 } }
+        );
+        const threshold = parseInt(process.env.LOW_STOCK_THRESHOLD || "5", 10);
+        if (updated && updated.stock >= 0 && updated.stock <= threshold) {
+          console.warn(
+            `[LOW-STOCK] ${updated.name} (${updated._id}) stock low: ${updated.stock}`
+          );
+        }
       }
 
       // Clear cart
       clearCart(userId);
 
       await order.save();
+      if (appliedCoupon) {
+        try {
+          await Coupon.updateOne(
+            { _id: appliedCoupon._id },
+            { $inc: { usedCount: 1 } }
+          );
+        } catch (_) {}
+      }
       await order.populate("orderItems.product", "name image");
+
+      // Save address to user's profile for future checkouts
+      try {
+        await User.findByIdAndUpdate(
+          userId,
+          {
+            $set: {
+              address: {
+                street: req.body.shippingAddress.street,
+                city: req.body.shippingAddress.city,
+                state: req.body.shippingAddress.state,
+                zipCode: req.body.shippingAddress.zipCode,
+                country: req.body.shippingAddress.country,
+              },
+            },
+          },
+          { new: true, runValidators: true }
+        );
+      } catch (e) {
+        console.warn("Failed to auto-save user address", e?.message || e);
+      }
 
       res.status(201).json(order);
     } catch (error) {
@@ -163,13 +243,31 @@ router.post(
       }
 
       // Calculate prices
-      const itemsPrice = items.reduce(
+      let itemsPrice = items.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0
       );
-      const taxPrice = itemsPrice * 0.15; // 15% tax (VAT in South Africa)
-      const shippingPrice = itemsPrice > 500 ? 0 : 50; // Free shipping over R500
-      const totalPrice = itemsPrice + taxPrice + shippingPrice;
+      let discount = 0;
+      let appliedCoupon = null;
+      if (req.body && req.body.couponCode) {
+        const code = String(req.body.couponCode || "")
+          .trim()
+          .toUpperCase();
+        if (code) {
+          const coupon = await Coupon.findOne({ code });
+          if (coupon && isCouponActiveNow(coupon)) {
+            const d = computeCouponDiscount(coupon, itemsPrice);
+            if (d > 0) {
+              discount = d;
+              appliedCoupon = coupon;
+            }
+          }
+        }
+      }
+      const netItems = Math.max(0, itemsPrice - discount);
+      const taxPrice = netItems * 0.15; // 15% tax (VAT in South Africa)
+      const shippingPrice = netItems > 500 ? 0 : 50; // Free shipping over R500
+      const totalPrice = netItems + taxPrice + shippingPrice;
 
       // Create order without user (guest order)
       const order = new Order({
@@ -180,6 +278,8 @@ router.post(
         orderItems,
         shippingAddress: req.body.shippingAddress,
         paymentMethod: req.body.paymentMethod,
+        discount,
+        couponCode: appliedCoupon ? appliedCoupon.code : undefined,
         taxPrice,
         shippingPrice,
         totalPrice,
@@ -189,9 +289,17 @@ router.post(
 
       // Update product stock
       for (const item of items) {
-        await Product.findByIdAndUpdate(item.productId, {
-          $inc: { stock: -item.quantity },
-        });
+        const updated = await Product.findByIdAndUpdate(
+          item.productId,
+          { $inc: { stock: -item.quantity } },
+          { new: true, projection: { name: 1, stock: 1 } }
+        );
+        const threshold = parseInt(process.env.LOW_STOCK_THRESHOLD || "5", 10);
+        if (updated && updated.stock >= 0 && updated.stock <= threshold) {
+          console.warn(
+            `[LOW-STOCK] ${updated.name} (${updated._id}) stock low: ${updated.stock}`
+          );
+        }
       }
 
       await order.save();
@@ -211,7 +319,7 @@ router.post(
 router.get("/", auth, async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user._id })
-      .populate("orderItems.product", "name image price")
+      .populate("orderItems.product", "name image price category")
       .sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
@@ -257,9 +365,43 @@ router.get("/admin/all", [auth, admin], async (req, res) => {
   try {
     const orders = await Order.find()
       .populate("user", "name email")
-      .populate("orderItems.product", "name image")
+      .populate("orderItems.product", "name image category")
       .sort({ createdAt: -1 });
     res.json(orders);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.put("/admin/:id/paid", [auth, admin], async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    const isPaid =
+      req.body && typeof req.body.isPaid === "boolean" ? req.body.isPaid : true;
+    order.isPaid = isPaid;
+    order.paidAt = isPaid ? new Date() : null;
+    await order.save();
+    res.json(order);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.put("/admin/:id/delivered", [auth, admin], async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    const isDelivered =
+      req.body && typeof req.body.isDelivered === "boolean"
+        ? req.body.isDelivered
+        : true;
+    order.isDelivered = isDelivered;
+    order.deliveredAt = isDelivered ? new Date() : null;
+    await order.save();
+    res.json(order);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });

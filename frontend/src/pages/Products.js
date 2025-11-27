@@ -1,10 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
-import { useCart } from "../context/CartContext";
-import { useWishlist } from "../context/WishlistContext";
-import { useAuth } from "../context/AuthContext";
-import { formatCurrency } from "../utils/currency";
 import {
   Search,
   ChevronLeft,
@@ -12,10 +8,12 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import ProductCard from "../components/ProductCard";
+import Breadcrumbs from "../components/Breadcrumbs";
 
 const Products = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [facets, setFacets] = useState(null);
   const [categories] = useState([
     "All",
     "Electronics",
@@ -40,14 +38,15 @@ const Products = () => {
   const [sort, setSort] = useState(searchParams.get("sort") || "newest");
   const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "");
+  const [isOnSale, setIsOnSale] = useState(
+    searchParams.get("isOnSale") === "true"
+  );
+  const [inStock, setInStock] = useState(
+    searchParams.get("inStock") === "true"
+  );
 
   const [totalPages, setTotalPages] = useState(1);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-
-  const { addToCart } = useCart();
-  const { wishlists } = useWishlist();
-  const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
 
   // Compute simple category suggestions for "Did you mean?"
   const didYouMeanCategories = (() => {
@@ -69,6 +68,8 @@ const Products = () => {
     const sortParam = searchParams.get("sort") || "newest";
     const minPriceParam = searchParams.get("minPrice") || "";
     const maxPriceParam = searchParams.get("maxPrice") || "";
+    const onSaleParam = searchParams.get("isOnSale") === "true";
+    const inStockParam = searchParams.get("inStock") === "true";
 
     setSelectedCategory(categoryParam);
     setSearchTerm(searchParam);
@@ -76,6 +77,8 @@ const Products = () => {
     setSort(sortParam);
     setMinPrice(minPriceParam);
     setMaxPrice(maxPriceParam);
+    setIsOnSale(onSaleParam);
+    setInStock(inStockParam);
 
     fetchProducts({
       category: categoryParam,
@@ -84,6 +87,8 @@ const Products = () => {
       sort: sortParam,
       minPrice: minPriceParam,
       maxPrice: maxPriceParam,
+      isOnSale: onSaleParam,
+      inStock: inStockParam,
     });
   }, [searchParams]);
 
@@ -93,12 +98,74 @@ const Products = () => {
       const apiParams = {
         ...params,
         limit: 12,
+        facets: true,
       };
+
+      const key =
+        "products:" +
+        [
+          "category",
+          "search",
+          "page",
+          "limit",
+          "sort",
+          "minPrice",
+          "maxPrice",
+          "isOnSale",
+          "inStock",
+        ]
+          .map((k) => `${k}=${apiParams[k] ?? ""}`)
+          .join("&");
+      const now = Date.now();
+      const ttl = 60000;
+      const cachedRaw = sessionStorage.getItem(key);
+      if (cachedRaw) {
+        try {
+          const cached = JSON.parse(cachedRaw);
+          if (cached.t && now - cached.t < ttl && cached.d) {
+            setProducts(cached.d.products || []);
+            setTotalPages(cached.d.totalPages || 1);
+          }
+        } catch (_) {}
+      }
 
       const res = await axios.get("/api/products", { params: apiParams });
       setProducts(res.data.products);
       setTotalPages(res.data.totalPages || 1);
+      setFacets(res.data.facets || null);
+      try {
+        sessionStorage.setItem(
+          key,
+          JSON.stringify({ t: Date.now(), d: res.data })
+        );
+      } catch (_) {}
     } catch (error) {
+      try {
+        const apiParams = { ...params, limit: 12 };
+        const key =
+          "products:" +
+          [
+            "category",
+            "search",
+            "page",
+            "limit",
+            "sort",
+            "minPrice",
+            "maxPrice",
+            "isOnSale",
+            "inStock",
+          ]
+            .map((k) => `${k}=${apiParams[k] ?? ""}`)
+            .join("&");
+        const cachedRaw = sessionStorage.getItem(key);
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw);
+          if (cached.d) {
+            setProducts(cached.d.products || []);
+            setTotalPages(cached.d.totalPages || 1);
+          }
+        }
+      } catch (_) {}
       console.error("Error fetching products:", error);
     } finally {
       setLoading(false);
@@ -147,6 +214,17 @@ const Products = () => {
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-4">
+          <Breadcrumbs
+            items={[
+              { label: "Home", to: "/" },
+              { label: "Products", to: "/products" },
+              ...(selectedCategory && selectedCategory !== "All"
+                ? [{ label: selectedCategory }]
+                : []),
+            ]}
+          />
+        </div>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Our Products</h1>
 
@@ -188,6 +266,80 @@ const Products = () => {
           </div>
         </div>
 
+        <div className="mb-6 flex flex-wrap gap-2">
+          <button
+            onClick={() =>
+              updateParams({ isOnSale: isOnSale ? undefined : "true" })
+            }
+            className={`px-3 py-1 rounded-full border text-sm ${
+              isOnSale
+                ? "bg-red-100 border-red-200 text-red-700"
+                : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            On Sale{facets?.onSale ? ` (${facets.onSale})` : ""}
+          </button>
+          <button
+            onClick={() =>
+              updateParams({ inStock: inStock ? undefined : "true" })
+            }
+            className={`px-3 py-1 rounded-full border text-sm ${
+              inStock
+                ? "bg-green-100 border-green-200 text-green-700"
+                : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            In Stock{facets?.inStock ? ` (${facets.inStock})` : ""}
+          </button>
+          <button
+            onClick={() => updateParams({ minPrice: "", maxPrice: "250" })}
+            className={`px-3 py-1 rounded-full border text-sm ${
+              maxPrice === "250" && !minPrice
+                ? "bg-blue-100 border-blue-200 text-blue-700"
+                : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Under 250
+            {facets?.priceBuckets?.under250
+              ? ` (${facets.priceBuckets.under250})`
+              : ""}
+          </button>
+          <button
+            onClick={() => updateParams({ minPrice: "250", maxPrice: "500" })}
+            className={`px-3 py-1 rounded-full border text-sm ${
+              minPrice === "250" && maxPrice === "500"
+                ? "bg-blue-100 border-blue-200 text-blue-700"
+                : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            250 - 500
+            {facets?.priceBuckets?.between250and500
+              ? ` (${facets.priceBuckets.between250and500})`
+              : ""}
+          </button>
+          <button
+            onClick={() => updateParams({ minPrice: "500", maxPrice: "" })}
+            className={`px-3 py-1 rounded-full border text-sm ${
+              minPrice === "500" && !maxPrice
+                ? "bg-blue-100 border-blue-200 text-blue-700"
+                : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Over 500
+            {facets?.priceBuckets?.over500
+              ? ` (${facets.priceBuckets.over500})`
+              : ""}
+          </button>
+          <button
+            onClick={() =>
+              updateParams({ minPrice: undefined, maxPrice: undefined })
+            }
+            className="px-3 py-1 rounded-full border text-sm bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            Clear Price
+          </button>
+        </div>
+
         <div className="flex flex-col md:flex-row gap-8">
           {/* Sidebar Filters */}
           <div
@@ -211,6 +363,14 @@ const Products = () => {
                       onClick={() => updateParams({ category })}
                     >
                       {category}
+                      {category !== "All" &&
+                        facets?.categories &&
+                        (() => {
+                          const c = facets.categories.find(
+                            (c) => c.name === category
+                          );
+                          return c ? ` (${c.count})` : "";
+                        })()}
                     </button>
                   ))}
                 </div>
