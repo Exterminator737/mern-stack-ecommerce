@@ -61,7 +61,7 @@ router.post(
         return res.status(400).json({ message: "Cart is empty" });
       }
 
-      // Validate stock and prepare order items
+      // Validate stock and prepare order items (variant-aware)
       const orderItems = [];
       for (const item of cart.items) {
         const product = await Product.findById(item.productId);
@@ -70,14 +70,40 @@ router.post(
             .status(404)
             .json({ message: `Product ${item.productId} not found` });
         }
-        if (product.stock < item.quantity) {
-          return res
-            .status(400)
-            .json({ message: `Insufficient stock for ${product.name}` });
+        let variant = null;
+        if (item.variantId) {
+          variant =
+            product.variants?.id(item.variantId) ||
+            (Array.isArray(product.variants)
+              ? product.variants.find(
+                  (v) => String(v._id) === String(item.variantId)
+                )
+              : null);
+          if (!variant) {
+            return res
+              .status(404)
+              .json({ message: `Variant not found for ${product.name}` });
+          }
+          if (variant.stock < item.quantity) {
+            return res
+              .status(400)
+              .json({ message: `Insufficient stock for ${product.name}` });
+          }
+        } else {
+          if (product.stock < item.quantity) {
+            return res
+              .status(400)
+              .json({ message: `Insufficient stock for ${product.name}` });
+          }
         }
 
         orderItems.push({
           product: product._id,
+          variantId: item.variantId || undefined,
+          sku: variant?.sku,
+          attributes: Array.isArray(variant?.attributes)
+            ? variant.attributes.map((a) => ({ name: a.name, value: a.value }))
+            : [],
           quantity: item.quantity,
           price: item.price,
         });
@@ -122,18 +148,49 @@ router.post(
         paidAt: null,
       });
 
-      // Update product stock
+      // Update product/variant stock
       for (const item of cart.items) {
-        const updated = await Product.findByIdAndUpdate(
-          item.productId,
-          { $inc: { stock: -item.quantity } },
-          { new: true, projection: { name: 1, stock: 1 } }
-        );
-        const threshold = parseInt(process.env.LOW_STOCK_THRESHOLD || "5", 10);
-        if (updated && updated.stock >= 0 && updated.stock <= threshold) {
-          console.warn(
-            `[LOW-STOCK] ${updated.name} (${updated._id}) stock low: ${updated.stock}`
+        if (item.variantId) {
+          const product = await Product.findById(item.productId);
+          if (product) {
+            const variant =
+              product.variants?.id(item.variantId) ||
+              (Array.isArray(product.variants)
+                ? product.variants.find(
+                    (v) => String(v._id) === String(item.variantId)
+                  )
+                : null);
+            if (variant) {
+              variant.stock = Math.max(0, (variant.stock || 0) - item.quantity);
+              await product.save();
+              const threshold = parseInt(
+                process.env.LOW_STOCK_THRESHOLD || "5",
+                10
+              );
+              if (variant.stock >= 0 && variant.stock <= threshold) {
+                console.warn(
+                  `[LOW-STOCK] ${product.name} (${product._id}) variant ${
+                    variant.sku || variant._id
+                  } stock low: ${variant.stock}`
+                );
+              }
+            }
+          }
+        } else {
+          const updated = await Product.findByIdAndUpdate(
+            item.productId,
+            { $inc: { stock: -item.quantity } },
+            { new: true, projection: { name: 1, stock: 1 } }
           );
+          const threshold = parseInt(
+            process.env.LOW_STOCK_THRESHOLD || "5",
+            10
+          );
+          if (updated && updated.stock >= 0 && updated.stock <= threshold) {
+            console.warn(
+              `[LOW-STOCK] ${updated.name} (${updated._id}) stock low: ${updated.stock}`
+            );
+          }
         }
       }
 
@@ -220,7 +277,7 @@ router.post(
         return res.status(400).json({ message: "Cart is empty" });
       }
 
-      // Validate stock and prepare order items
+      // Validate stock and prepare order items (variant-aware)
       const orderItems = [];
       for (const item of items) {
         const product = await Product.findById(item.productId);
@@ -229,14 +286,40 @@ router.post(
             .status(404)
             .json({ message: `Product ${item.productId} not found` });
         }
-        if (product.stock < item.quantity) {
-          return res
-            .status(400)
-            .json({ message: `Insufficient stock for ${product.name}` });
+        let variant = null;
+        if (item.variantId) {
+          variant =
+            product.variants?.id(item.variantId) ||
+            (Array.isArray(product.variants)
+              ? product.variants.find(
+                  (v) => String(v._id) === String(item.variantId)
+                )
+              : null);
+          if (!variant) {
+            return res
+              .status(404)
+              .json({ message: `Variant not found for ${product.name}` });
+          }
+          if (variant.stock < item.quantity) {
+            return res
+              .status(400)
+              .json({ message: `Insufficient stock for ${product.name}` });
+          }
+        } else {
+          if (product.stock < item.quantity) {
+            return res
+              .status(400)
+              .json({ message: `Insufficient stock for ${product.name}` });
+          }
         }
 
         orderItems.push({
           product: product._id,
+          variantId: item.variantId || undefined,
+          sku: variant?.sku,
+          attributes: Array.isArray(variant?.attributes)
+            ? variant.attributes.map((a) => ({ name: a.name, value: a.value }))
+            : [],
           quantity: item.quantity,
           price: item.price,
         });
@@ -287,18 +370,49 @@ router.post(
         paidAt: null,
       });
 
-      // Update product stock
+      // Update product/variant stock
       for (const item of items) {
-        const updated = await Product.findByIdAndUpdate(
-          item.productId,
-          { $inc: { stock: -item.quantity } },
-          { new: true, projection: { name: 1, stock: 1 } }
-        );
-        const threshold = parseInt(process.env.LOW_STOCK_THRESHOLD || "5", 10);
-        if (updated && updated.stock >= 0 && updated.stock <= threshold) {
-          console.warn(
-            `[LOW-STOCK] ${updated.name} (${updated._id}) stock low: ${updated.stock}`
+        if (item.variantId) {
+          const product = await Product.findById(item.productId);
+          if (product) {
+            const variant =
+              product.variants?.id(item.variantId) ||
+              (Array.isArray(product.variants)
+                ? product.variants.find(
+                    (v) => String(v._id) === String(item.variantId)
+                  )
+                : null);
+            if (variant) {
+              variant.stock = Math.max(0, (variant.stock || 0) - item.quantity);
+              await product.save();
+              const threshold = parseInt(
+                process.env.LOW_STOCK_THRESHOLD || "5",
+                10
+              );
+              if (variant.stock >= 0 && variant.stock <= threshold) {
+                console.warn(
+                  `[LOW-STOCK] ${product.name} (${product._id}) variant ${
+                    variant.sku || variant._id
+                  } stock low: ${variant.stock}`
+                );
+              }
+            }
+          }
+        } else {
+          const updated = await Product.findByIdAndUpdate(
+            item.productId,
+            { $inc: { stock: -item.quantity } },
+            { new: true, projection: { name: 1, stock: 1 } }
           );
+          const threshold = parseInt(
+            process.env.LOW_STOCK_THRESHOLD || "5",
+            10
+          );
+          if (updated && updated.stock >= 0 && updated.stock <= threshold) {
+            console.warn(
+              `[LOW-STOCK] ${updated.name} (${updated._id}) stock low: ${updated.stock}`
+            );
+          }
         }
       }
 

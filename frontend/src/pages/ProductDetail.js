@@ -42,6 +42,9 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [variantAttributes, setVariantAttributes] = useState([]);
+  const [selectedOptions, setSelectedOptions] = useState({});
 
   // Carousel State
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -61,6 +64,44 @@ const ProductDetail = () => {
           ? res.data.images
           : [res.data.image];
       setImages(imgs);
+
+      // Variants setup
+      if (Array.isArray(res.data.variants) && res.data.variants.length > 0) {
+        // Build attribute map { name: Set(values) }
+        const map = new Map();
+        for (const v of res.data.variants) {
+          if (Array.isArray(v.attributes)) {
+            for (const a of v.attributes) {
+              const key = String(a.name || "").trim();
+              if (!key) continue;
+              if (!map.has(key)) map.set(key, new Set());
+              map.get(key).add(String(a.value || "").trim());
+            }
+          }
+        }
+        const attrs = Array.from(map.entries()).map(([name, set]) => ({
+          name,
+          values: Array.from(set.values()),
+        }));
+        setVariantAttributes(attrs);
+
+        // Pick default variant: first with stock > 0, else first
+        const def =
+          res.data.variants.find((v) => (v.stock || 0) > 0) ||
+          res.data.variants[0];
+        setSelectedVariant(def || null);
+        if (def && Array.isArray(def.attributes)) {
+          const opt = {};
+          def.attributes.forEach((a) => {
+            if (a?.name) opt[a.name] = a.value;
+          });
+          setSelectedOptions(opt);
+        }
+      } else {
+        setVariantAttributes([]);
+        setSelectedVariant(null);
+        setSelectedOptions({});
+      }
 
       // Fetch similar products
       fetchSimilarProducts(res.data.category, res.data._id);
@@ -99,6 +140,29 @@ const ProductDetail = () => {
     setActiveImageIndex(0);
   }, [fetchProduct]);
 
+  useEffect(() => {
+    // Recompute selected variant based on selectedOptions
+    if (
+      product &&
+      Array.isArray(product.variants) &&
+      product.variants.length > 0
+    ) {
+      const entries = Object.entries(selectedOptions || {}).filter(
+        ([k, v]) => k && v
+      );
+      if (entries.length === 0) return; // keep default
+      const match = product.variants.find((v) => {
+        if (!Array.isArray(v.attributes)) return false;
+        for (const [name, val] of entries) {
+          const a = v.attributes.find((x) => x.name === name);
+          if (!a || String(a.value) !== String(val)) return false;
+        }
+        return true;
+      });
+      if (match) setSelectedVariant(match);
+    }
+  }, [product, selectedOptions]);
+
   const fetchSimilarProducts = async (category, currentId) => {
     try {
       const res = await axios.get(`/api/products?category=${category}&limit=4`);
@@ -117,7 +181,11 @@ const ProductDetail = () => {
     }
 
     setIsAdding(true);
-    const result = await addToCart(product._id, quantity);
+    const result = await addToCart(
+      product._id,
+      quantity,
+      selectedVariant?._id || null
+    );
     setIsAdding(false);
 
     if (result.success) {
@@ -162,6 +230,22 @@ const ProductDetail = () => {
   }
 
   if (!product) return null;
+
+  // Derive price/stock based on selected variant if present
+  const v = selectedVariant;
+  const vOrig = v
+    ? v.originalPrice ?? v.price ?? product.originalPrice ?? product.price
+    : product.originalPrice ?? product.price;
+  const vOnSale = v
+    ? v.isOnSale && v.salePrice && v.salePrice < vOrig
+    : product.originalPrice && product.originalPrice > product.price;
+  const displayPrice = v
+    ? vOnSale
+      ? v.salePrice
+      : v.price ?? product.price
+    : product.price;
+  const displayOriginal = vOnSale ? vOrig : null;
+  const availableStock = v ? v.stock ?? 0 : product.stock ?? 0;
 
   const productJsonLd = {
     "@context": "https://schema.org",
@@ -244,7 +328,7 @@ const ProductDetail = () => {
             {/* Main Image */}
             <div className="relative flex-1 h-[500px] rounded-lg overflow-hidden bg-gray-50 group">
               <img
-                src={images[activeImageIndex]}
+                src={selectedVariant?.image || images[activeImageIndex]}
                 alt={product.name}
                 loading="eager"
                 fetchpriority="high"
@@ -326,26 +410,61 @@ const ProductDetail = () => {
               </div>
               <div className="flex items-end gap-3">
                 <p className="text-3xl font-bold text-primary-600">
-                  {formatCurrency(product.price)}
+                  {formatCurrency(displayPrice)}
                 </p>
-                {product.originalPrice &&
-                  product.originalPrice > product.price && (
-                    <>
-                      <p className="text-xl text-gray-500 line-through mb-1">
-                        {formatCurrency(product.originalPrice)}
-                      </p>
-                      <span className="mb-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        {Math.round(
-                          ((product.originalPrice - product.price) /
-                            product.originalPrice) *
-                            100
-                        )}
-                        % OFF
-                      </span>
-                    </>
-                  )}
+                {displayOriginal && displayOriginal > displayPrice && (
+                  <>
+                    <p className="text-xl text-gray-500 line-through mb-1">
+                      {formatCurrency(displayOriginal)}
+                    </p>
+                    <span className="mb-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      {Math.round(
+                        ((displayOriginal - displayPrice) / displayOriginal) *
+                          100
+                      )}
+                      % OFF
+                    </span>
+                  </>
+                )}
               </div>
             </div>
+
+            {/* Variant Selectors */}
+            {variantAttributes.length > 0 && (
+              <div className="mt-6 space-y-4">
+                {variantAttributes.map((attr) => (
+                  <div key={attr.name}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {attr.name}
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {attr.values.map((val) => {
+                        const active = selectedOptions[attr.name] === val;
+                        return (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() =>
+                              setSelectedOptions((prev) => ({
+                                ...prev,
+                                [attr.name]: val,
+                              }))
+                            }
+                            className={`px-3 py-1 rounded-full border text-sm ${
+                              active
+                                ? "bg-primary-600 text-white border-primary-700"
+                                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                            }`}
+                          >
+                            {val}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="py-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
@@ -400,15 +519,15 @@ const ProductDetail = () => {
               <div className="flex items-center mb-6">
                 <span
                   className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                    product.stock > 0
+                    availableStock > 0
                       ? "bg-green-100 text-green-800"
                       : "bg-red-100 text-red-800"
                   }`}
                 >
-                  {product.stock > 0 ? (
+                  {availableStock > 0 ? (
                     <>
                       <Check className="w-4 h-4 mr-1" />
-                      In Stock ({product.stock} available)
+                      In Stock ({availableStock} available)
                     </>
                   ) : (
                     <>
@@ -419,14 +538,14 @@ const ProductDetail = () => {
                 </span>
               </div>
 
-              {product.stock > 0 && product.stock <= 5 && (
+              {availableStock > 0 && availableStock <= 5 && (
                 <div className="mb-6 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-3">
                   <span className="font-medium">Low stock:</span> Only{" "}
-                  {product.stock} left. Order soon.
+                  {availableStock} left. Order soon.
                 </div>
               )}
 
-              {product.stock > 0 && (
+              {availableStock > 0 && (
                 <div className="space-y-6">
                   <div className="flex items-center">
                     <label
@@ -448,14 +567,14 @@ const ProductDetail = () => {
                         name="quantity"
                         type="number"
                         min="1"
-                        max={product.stock}
+                        max={availableStock}
                         value={quantity}
                         onChange={(e) =>
                           setQuantity(
                             Math.max(
                               1,
                               Math.min(
-                                product.stock,
+                                availableStock,
                                 parseInt(e.target.value) || 1
                               )
                             )
@@ -467,7 +586,7 @@ const ProductDetail = () => {
                         type="button"
                         className="p-2 text-gray-600 hover:bg-gray-100 border-l border-gray-300"
                         onClick={() =>
-                          setQuantity(Math.min(product.stock, quantity + 1))
+                          setQuantity(Math.min(availableStock, quantity + 1))
                         }
                       >
                         <Plus className="w-4 h-4" />

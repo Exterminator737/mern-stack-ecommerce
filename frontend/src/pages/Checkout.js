@@ -162,6 +162,7 @@ const Checkout = () => {
           .filter((item) => item.product)
           .map((item) => ({
             productId: item.productId,
+            variantId: item.variantId || item.variant?._id || undefined,
             quantity: item.quantity,
             price: item.price,
           }));

@@ -1,5 +1,24 @@
 const mongoose = require("mongoose");
 
+const variantSchema = new mongoose.Schema(
+  {
+    sku: { type: String, trim: true },
+    attributes: [
+      {
+        name: { type: String, required: true, trim: true },
+        value: { type: String, required: true, trim: true },
+      },
+    ],
+    price: { type: Number, min: 0 },
+    originalPrice: { type: Number, min: 0 },
+    salePrice: { type: Number, min: 0 },
+    isOnSale: { type: Boolean, default: false },
+    stock: { type: Number, required: true, min: 0, default: 0 },
+    image: { type: String },
+  },
+  { _id: true }
+);
+
 const productSchema = new mongoose.Schema(
   {
     name: {
@@ -59,6 +78,8 @@ const productSchema = new mongoose.Schema(
         type: String,
       },
     ],
+    // Optional variant list; when present, stock/price can be overridden per variant
+    variants: [variantSchema],
     stock: {
       type: Number,
       required: true,
@@ -109,6 +130,17 @@ const productSchema = new mongoose.Schema(
     toObject: { virtuals: true },
   }
 );
+
+productSchema.virtual("hasVariants").get(function () {
+  return Array.isArray(this.variants) && this.variants.length > 0;
+});
+
+productSchema.virtual("effectiveStock").get(function () {
+  if (Array.isArray(this.variants) && this.variants.length > 0) {
+    return this.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+  }
+  return this.stock || 0;
+});
 
 productSchema.virtual("salePercentage").get(function () {
   if (this.isOnSale && this.originalPrice && this.price < this.originalPrice) {

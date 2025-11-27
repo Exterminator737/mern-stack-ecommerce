@@ -76,7 +76,7 @@ router.get("/", async (req, res) => {
     }
 
     if (inStock === "true") {
-      query.stock = { $gt: 0 };
+      query.$or = [{ stock: { $gt: 0 } }, { "variants.stock": { $gt: 0 } }];
     }
 
     if (search) {
@@ -132,7 +132,17 @@ router.get("/", async (req, res) => {
               { $sort: { count: -1 } },
             ],
             onSale: [{ $match: { isOnSale: true } }, { $count: "count" }],
-            inStock: [{ $match: { stock: { $gt: 0 } } }, { $count: "count" }],
+            inStock: [
+              {
+                $match: {
+                  $or: [
+                    { stock: { $gt: 0 } },
+                    { "variants.stock": { $gt: 0 } },
+                  ],
+                },
+              },
+              { $count: "count" },
+            ],
             priceBuckets: [
               {
                 $bucket: {
