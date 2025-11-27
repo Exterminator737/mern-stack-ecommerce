@@ -19,14 +19,27 @@ const ProductCard = ({ product }) => {
   } = useWishlist();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const imageUrl =
-    Array.isArray(product.images) && product.images.length > 0
-      ? product.images[0]
-      : product.image;
+  const hasVariants =
+    Array.isArray(product.variants) && product.variants.length > 0;
+  const effectiveStock = hasVariants
+    ? product.variants.reduce((s, v) => s + (v.stock || 0), 0)
+    : product.stock || 0;
+  const imageUrl = hasVariants
+    ? product.variants.find((v) => v.image)?.image ||
+      (Array.isArray(product.images) && product.images.length > 0
+        ? product.images[0]
+        : product.image)
+    : Array.isArray(product.images) && product.images.length > 0
+    ? product.images[0]
+    : product.image;
 
   const handleAddToCart = async (e) => {
     e.preventDefault();
-    await addToCart(product._id, 1);
+    if (hasVariants) {
+      navigate(`/products/${product._id}`);
+      return;
+    }
+    await addToCart(product._id, 1, null);
   };
 
   const handleToggleWishlist = async (e) => {
@@ -67,7 +80,7 @@ const ProductCard = ({ product }) => {
           />
         )}
 
-        {product.stock > 0 && product.stock <= 5 && (
+        {effectiveStock > 0 && effectiveStock <= 5 && (
           <div className="absolute top-0 left-0 m-2 px-2 py-1 bg-amber-500 text-white text-xs font-bold rounded">
             Low stock
           </div>
@@ -80,7 +93,7 @@ const ProductCard = ({ product }) => {
           decoding="async"
           className="w-full h-64 object-cover object-center group-hover:opacity-75 transition-opacity"
         />
-        {product.stock === 0 && (
+        {effectiveStock === 0 && (
           <div className="absolute top-0 right-0 m-2 px-2 py-1 bg-red-500 text-white text-xs font-bold rounded">
             Out of Stock
           </div>
@@ -106,6 +119,39 @@ const ProductCard = ({ product }) => {
           {product.name}
         </h3>
         <p className="mt-1 text-sm text-gray-500">{product.category}</p>
+
+        {hasVariants && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {(() => {
+              try {
+                // Derive first attribute and show its unique values (up to 5 chips)
+                const allAttrs = product.variants.flatMap((v) =>
+                  Array.isArray(v.attributes) ? v.attributes : []
+                );
+                if (allAttrs.length === 0) return null;
+                const firstName = allAttrs[0].name;
+                const valuesSet = new Set();
+                product.variants.forEach((v) => {
+                  const a = (v.attributes || []).find(
+                    (x) => x.name === firstName
+                  );
+                  if (a && a.value) valuesSet.add(String(a.value));
+                });
+                const values = Array.from(valuesSet.values()).slice(0, 5);
+                return values.map((v) => (
+                  <span
+                    key={v}
+                    className="px-2 py-0.5 border rounded-full text-[10px] text-gray-600 bg-white"
+                  >
+                    {v}
+                  </span>
+                ));
+              } catch (_) {
+                return null;
+              }
+            })()}
+          </div>
+        )}
 
         <div className="mt-2 flex items-center justify-between">
           <div className="flex flex-col">
@@ -138,15 +184,17 @@ const ProductCard = ({ product }) => {
         <div className="pt-4 border-t border-gray-100 flex items-center gap-2 mt-auto">
           <button
             onClick={handleAddToCart}
-            disabled={product.stock === 0}
+            disabled={effectiveStock === 0}
             className={`flex-1 flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white ${
-              product.stock === 0
+              effectiveStock === 0
                 ? "bg-gray-400 cursor-not-allowed"
+                : hasVariants
+                ? "bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 : "bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
             }`}
           >
             <ShoppingCart className="h-4 w-4 mr-2" />
-            Add to Cart
+            {hasVariants ? "View Options" : "Add to Cart"}
           </button>
         </div>
       </div>

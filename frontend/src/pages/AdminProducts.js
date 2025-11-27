@@ -46,6 +46,7 @@ const AdminProducts = () => {
     image: "",
     stock: "",
     specifications: [],
+    variants: [],
   });
 
   const salePercentage =
@@ -135,6 +136,24 @@ const AdminProducts = () => {
       image: product.image,
       stock: product.stock.toString(),
       specifications: product.specifications || [],
+      variants: Array.isArray(product.variants)
+        ? product.variants.map((v) => ({
+            _id: v._id,
+            sku: v.sku || "",
+            attributes: Array.isArray(v.attributes)
+              ? v.attributes.map((a) => ({
+                  name: a.name || "",
+                  value: a.value || "",
+                }))
+              : [],
+            price: v.price ?? "",
+            originalPrice: v.originalPrice ?? "",
+            salePrice: v.salePrice ?? "",
+            isOnSale: !!v.isOnSale,
+            stock: v.stock ?? 0,
+            image: v.image || "",
+          }))
+        : [],
     });
     setShowEditModal(true);
   };
@@ -210,6 +229,58 @@ const AdminProducts = () => {
     setFormData({ ...formData, specifications: newSpecs });
   };
 
+  // Variant handlers
+  const addVariant = () => {
+    const next = [
+      ...formData.variants,
+      {
+        sku: "",
+        attributes: [],
+        price: "",
+        originalPrice: "",
+        salePrice: "",
+        isOnSale: false,
+        stock: 0,
+        image: "",
+      },
+    ];
+    setFormData({ ...formData, variants: next });
+  };
+
+  const removeVariant = (idx) => {
+    const next = [...formData.variants];
+    next.splice(idx, 1);
+    setFormData({ ...formData, variants: next });
+  };
+
+  const updateVariantField = (idx, field, value) => {
+    const next = [...formData.variants];
+    next[idx] = { ...next[idx], [field]: value };
+    setFormData({ ...formData, variants: next });
+  };
+
+  const addVariantAttribute = (vidx) => {
+    const next = [...formData.variants];
+    const v = next[vidx];
+    v.attributes = Array.isArray(v.attributes) ? v.attributes : [];
+    v.attributes.push({ name: "", value: "" });
+    setFormData({ ...formData, variants: next });
+  };
+
+  const removeVariantAttribute = (vidx, aidx) => {
+    const next = [...formData.variants];
+    const v = next[vidx];
+    v.attributes.splice(aidx, 1);
+    setFormData({ ...formData, variants: next });
+  };
+
+  const updateVariantAttribute = (vidx, aidx, field, value) => {
+    const next = [...formData.variants];
+    const v = next[vidx];
+    v.attributes[aidx][field] = value;
+    setFormData({ ...formData, variants: next });
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen">
       <AdminSidebar />
@@ -233,6 +304,7 @@ const AdminProducts = () => {
                     image: "",
                     stock: "",
                     specifications: [],
+                    variants: [],
                   });
                   setShowEditModal(true);
                 }}
@@ -398,10 +470,16 @@ const AdminProducts = () => {
                       </td>
                       <td
                         className={`px-6 py-4 text-sm font-medium ${
-                          p.stock <= 5 ? "text-red-600" : "text-gray-900"
+                          (Array.isArray(p.variants) && p.variants.length > 0
+                            ? p.variants.reduce((s, v) => s + (v.stock || 0), 0)
+                            : p.stock || 0) <= 5
+                            ? "text-red-600"
+                            : "text-gray-900"
                         }`}
                       >
-                        {p.stock}
+                        {Array.isArray(p.variants) && p.variants.length > 0
+                          ? p.variants.reduce((s, v) => s + (v.stock || 0), 0)
+                          : p.stock || 0}
                       </td>
                       <td className="px-6 py-4 text-right text-sm">
                         <button
@@ -732,6 +810,237 @@ const AdminProducts = () => {
                           </div>
                         )}
                       </div>
+                      {/* Variants */}
+                      <div className="border-t border-gray-200 pt-4 mt-6">
+                        <div className="flex justify-between items-center mb-4">
+                          <h4 className="text-lg font-medium text-gray-900">
+                            Variants (optional)
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={addVariant}
+                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-primary-700 bg-primary-100 hover:bg-primary-200"
+                          >
+                            <Plus className="h-4 w-4 mr-1" /> Add Variant
+                          </button>
+                        </div>
+                        {formData.variants.length === 0 ? (
+                          <p className="text-sm text-gray-500 italic">
+                            No variants added.
+                          </p>
+                        ) : (
+                          <div className="space-y-4 max-h-64 overflow-y-auto pr-1">
+                            {formData.variants.map((v, vidx) => (
+                              <div
+                                key={vidx}
+                                className="border rounded-md p-3 bg-gray-50"
+                              >
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      SKU
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={v.sku}
+                                      onChange={(e) =>
+                                        updateVariantField(
+                                          vidx,
+                                          "sku",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Image URL
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={v.image}
+                                      onChange={(e) =>
+                                        updateVariantField(
+                                          vidx,
+                                          "image",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 text-sm"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Regular Price
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={v.originalPrice}
+                                      onChange={(e) =>
+                                        updateVariantField(
+                                          vidx,
+                                          "originalPrice",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 text-sm"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-6 sm:mt-0">
+                                    <input
+                                      id={`v_isOnSale_${vidx}`}
+                                      type="checkbox"
+                                      checked={!!v.isOnSale}
+                                      onChange={(e) =>
+                                        updateVariantField(
+                                          vidx,
+                                          "isOnSale",
+                                          e.target.checked
+                                        )
+                                      }
+                                      className="h-4 w-4 text-primary-600 border-gray-300 rounded"
+                                    />
+                                    <label
+                                      htmlFor={`v_isOnSale_${vidx}`}
+                                      className="text-sm text-gray-700"
+                                    >
+                                      On Sale
+                                    </label>
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Sale Price
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={v.salePrice}
+                                      onChange={(e) =>
+                                        updateVariantField(
+                                          vidx,
+                                          "salePrice",
+                                          e.target.value
+                                        )
+                                      }
+                                      disabled={!v.isOnSale}
+                                      className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 text-sm disabled:bg-gray-100"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Stock
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={v.stock}
+                                      onChange={(e) =>
+                                        updateVariantField(
+                                          vidx,
+                                          "stock",
+                                          parseInt(e.target.value || "0", 10)
+                                        )
+                                      }
+                                      className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center justify-between">
+                                      <label className="text-sm font-medium text-gray-700">
+                                        Attributes
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          addVariantAttribute(vidx)
+                                        }
+                                        className="text-xs px-2 py-1 rounded-md bg-white border text-gray-700 hover:bg-gray-50"
+                                      >
+                                        Add Attribute
+                                      </button>
+                                    </div>
+                                    <div className="mt-2 space-y-2">
+                                      {Array.isArray(v.attributes) &&
+                                      v.attributes.length > 0 ? (
+                                        v.attributes.map((a, aidx) => (
+                                          <div
+                                            key={aidx}
+                                            className="flex gap-2"
+                                          >
+                                            <input
+                                              type="text"
+                                              placeholder="Name (e.g., Color)"
+                                              value={a.name}
+                                              onChange={(e) =>
+                                                updateVariantAttribute(
+                                                  vidx,
+                                                  aidx,
+                                                  "name",
+                                                  e.target.value
+                                                )
+                                              }
+                                              className="flex-1 border border-gray-300 rounded-md py-1 px-2 text-sm"
+                                            />
+                                            <input
+                                              type="text"
+                                              placeholder="Value (e.g., Red)"
+                                              value={a.value}
+                                              onChange={(e) =>
+                                                updateVariantAttribute(
+                                                  vidx,
+                                                  aidx,
+                                                  "value",
+                                                  e.target.value
+                                                )
+                                              }
+                                              className="flex-1 border border-gray-300 rounded-md py-1 px-2 text-sm"
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                removeVariantAttribute(
+                                                  vidx,
+                                                  aidx
+                                                )
+                                              }
+                                              className="px-2 text-red-500 hover:text-red-700"
+                                              title="Remove"
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </button>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <p className="text-xs text-gray-500">
+                                          No attributes
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="mt-3 flex justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeVariant(vidx)}
+                                    className="text-sm text-red-600 hover:text-red-800"
+                                  >
+                                    Remove Variant
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       <div className="mt-5 sm:mt-6 flex gap-3">
                         <button
                           type="submit"
